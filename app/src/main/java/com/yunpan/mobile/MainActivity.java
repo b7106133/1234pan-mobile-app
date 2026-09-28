@@ -3138,9 +3138,6 @@ public class MainActivity extends Activity {
         public void pickDownloadDir() { act.pickDownloadDir(); }
 
         @JavascriptInterface
-        public void deleteDownloadedFile(String fileName) { act.deleteDownloadedFile(fileName); }
-
-        @JavascriptInterface
         public void apiRequest(final String callback, final String method,
                                final String url, final String body, final boolean withAuth) {
             act.doApi(callback, method, url, body, withAuth);
@@ -3353,6 +3350,53 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void openFile(final String name) {
             act.openDownloadedFile(name);
+        }
+
+        @JavascriptInterface
+        public String listDownloadedFiles() {
+            try {
+                StringBuilder sb = new StringBuilder("[");
+                boolean first = true;
+                // 读 Download 根目录 + Download/云盘助手 子目录
+                java.io.File[] dirs = new java.io.File[] {
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                    new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), act.getDownloadSubDir())
+                };
+                java.util.Set<String> seen = new java.util.HashSet<String>();
+                for (java.io.File dir : dirs) {
+                    if (dir == null || !dir.exists() || !dir.isDirectory()) continue;
+                    java.io.File[] files = dir.listFiles();
+                    if (files == null) continue;
+                    java.util.Arrays.sort(files, new java.util.Comparator<java.io.File>() {
+                        public int compare(java.io.File a, java.io.File b) {
+                            return Long.compare(b.lastModified(), a.lastModified());
+                        }
+                    });
+                    for (java.io.File f : files) {
+                        if (f.isDirectory()) continue;
+                        if (seen.contains(f.getName())) continue;
+                        seen.add(f.getName());
+                        if (!first) sb.append(",");
+                        first = false;
+                        sb.append("{\"name\":\"").append(act.json(f.getName()))
+                          .append("\",\"size\":").append(f.length())
+                          .append(",\"mtime\":").append(f.lastModified())
+                          .append("}");
+                    }
+                }
+                sb.append("]");
+                return sb.toString();
+            } catch (Exception e) { return "[]"; }
+        }
+
+        @JavascriptInterface
+        public boolean deleteDownloadedFile(final String name) {
+            try {
+                java.io.File dir = new java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                    act.getDownloadSubDir());
+                return new java.io.File(dir, name).delete();
+            } catch (Exception e) { return false; }
         }
 
         @JavascriptInterface

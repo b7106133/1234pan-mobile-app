@@ -392,7 +392,6 @@
 
   // ---------- 页面切换 ----------
   function switchView(v) {
-    // 离开文件页前保存滚动位置，回来后恢复
     if (state.view === 'files' && v !== 'files') {
       var sc = $('content');
       state.filesScrollTop = sc ? sc.scrollTop : 0;
@@ -419,6 +418,9 @@
     if (v === 'recycle') loadRecycle();
     if (v === 'transfers') { renderTransfers(); startProgressPolling(); }
     else { stopProgressPolling(); }
+    // 文件底部工具栏只在文件页显示
+    var ft = $('file-toolbar');
+    if (ft) ft.classList.toggle('toolbar-hidden', v !== 'files' || state.selectMode);
     if (v === 'files' && !$('file-list').dataset.loaded) loadList();
     // 恢复文件列表滚动位置
     var sc2 = $('content');
@@ -639,6 +641,86 @@
     } catch (e) { /* 忽略轮询解析错误 */ }
   }
 
+  // 已下载文件管理
+  function renderDownloadedFiles(box) {
+    var raw = bridge.listDownloadedFiles ? bridge.listDownloadedFiles() : '[]';
+    var files = [];
+    try { files = JSON.parse(raw || '[]'); } catch (e) { files = []; }
+    if (!files.length) {
+      box.innerHTML = '<div style="padding:40px 16px;text-align:center;color:var(--fg3);">暂无已下载文件</div>';
+      return;
+    }
+    files.sort(function(a,b){ return b.mtime - a.mtime; });
+    var html = '';
+    files.forEach(function(f) {
+      var icon = iconForName(f.name);
+      var size = fmtSize(f.size);
+      var date = new Date(f.mtime);
+      var ds = date.getFullYear() + '-' + pad(date.getMonth()+1) + '-' + pad(date.getDate())
+             + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+      html += '<div class="file-row" data-name="' + esc(f.name) + '" style="display:flex;align-items:center;padding:12px;background:var(--card);border-bottom:1px solid var(--border);">'
+        + '<div class="file-icon-wrap ' + icon + ' mi-icon" data-icon="' + iconForName(f.name) + '" style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-right:12px;"></div>'
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="font-size:14px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(f.name) + '</div>'
+        + '<div style="font-size:12px;color:var(--fg3);margin-top:2px;">' + size + ' · ' + ds + '</div>'
+        + '</div></div>';
+    });
+    box.innerHTML = html;
+    box.querySelectorAll('.file-row').forEach(function(row) {
+      row.addEventListener('click', function() {
+        var name = row.getAttribute('data-name');
+        showDownloadedFileMenu(name);
+      });
+    });
+    injectIcons(box);
+  }
+  function showDownloadedFileMenu(name) {
+    var isApk = /\.apk$/i.test(name);
+    var items = [
+      { label: isApk ? '安装' : '打开', icon: 'open', act: function(){ bridge.openFile(name); } },
+      { label: '重命名', icon: 'rename', act: function(){
+        showPrompt('重命名', '输入新文件名', name, function(newName){
+          if (!newName || newName === name) return;
+          if (bridge.renameDownloadedFile(name, newName)) { toast('已重命名'); refreshDoneList(); }
+          else toast('重命名失败');
+        });
+      }},
+      { label: '删除', icon: 'trash', act: function(){
+        showConfirm('删除文件 ' + name + '？', function(){
+function refreshDoneList() {
+      renderDownloadedFiles($('transfer-list'));
+    }
+    if (bridge.deleteDownloadedFile(name)) { toast('已删除'); refreshDoneList(); }
+          else toast('删除失败');
+        });
+      }}
+    ];
+    showActionSheet(items);
+  }
+  function showActionSheet(items) {
+    var old = document.getElementById('dl-action-sheet');
+    if (old) old.remove();
+    var mask = document.createElement('div');
+    mask.id = 'dl-action-sheet';
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99999;display:flex;align-items:flex-end;';
+    var sheet = document.createElement('div');
+    sheet.style.cssText = 'width:100%;background:var(--card);border-radius:16px 16px 0 0;padding:12px 0;';
+    items.forEach(function(it) {
+      var row = document.createElement('div');
+      row.style.cssText = 'padding:14px 16px;font-size:15px;color:var(--fg);cursor:pointer;';
+      row.textContent = it.label;
+      row.onclick = function(){ mask.remove(); it.act(); };
+      sheet.appendChild(row);
+    });
+    var cancel = document.createElement('div');
+    cancel.style.cssText = 'padding:14px 16px;font-size:15px;color:var(--fg3);text-align:center;cursor:pointer;margin-top:4px;';
+    cancel.textContent = '取消';
+    cancel.onclick = function(){ mask.remove(); };
+    sheet.appendChild(cancel);
+    mask.appendChild(sheet);
+    mask.onclick = function(e){ if(e.target===mask) mask.remove(); };
+    document.body.appendChild(mask);
+  }
   // 离线下载：先解析资源，再提交
   function doOfflineDownload() {
     var url = ($('offline-url').value || '').trim();
@@ -683,11 +765,12 @@
     var box = $('transfer-list');
     var empty = $('transfer-empty');
     if (!box) return;
-    var tbD = $('ttab-download'), tbU = $('ttab-upload'), tbo = $('ttab-offline');
+    var tbD = $('ttab-download'), tbU = $('ttab-upload'), tbo = $('ttab-offline'), tbd = $('ttab-done');
     // 离线下载页：显示表单
     if (state.transferTab === 'offline') {
       if (tbD) tbD.classList.remove('active');
       if (tbU) tbU.classList.remove('active');
+      if (tbd) tbd.classList.remove('active');
       if (tbo) tbo.classList.add('active');
       if (empty) hide(empty);
       box.innerHTML = '<div style="padding:16px;">'
@@ -697,6 +780,17 @@
         + '<div id="offline-result" style="margin-top:12px;font-size:13px;color:var(--fg2);line-height:1.6;"></div>'
         + '</div>';
       $('offline-go').addEventListener('click', doOfflineDownload);
+      return;
+    }
+    // 已下载文件管理
+    if (state.transferTab === 'done') {
+      if (tbD) tbD.classList.remove('active');
+      if (tbU) tbU.classList.remove('active');
+      if (tbo) tbo.classList.remove('active');
+      if (tbd) tbd.classList.add('active');
+      if (empty) hide(empty);
+      box.innerHTML = '';
+      renderDownloadedFiles(box);
       return;
     }
     var arr = state.transfers || loadTransfers();
@@ -709,17 +803,12 @@
     if (tbD) tbD.classList.toggle('active', tab !== 'upload');
     if (tbU) tbU.classList.toggle('active', tab === 'upload');
     if (tbo) tbo.classList.remove('active');
+    if (tbd) tbd.classList.remove('active');
     // 空态文案随子页签变化
     var et = $('transfer-empty-title');
     if (et) et.textContent = tab === 'upload' ? '暂无上传任务' : '暂无下载任务';
     var es = $('transfer-empty-sub');
     if (es) es.textContent = tab === 'upload' ? '上传任务将在此实时显示' : '下载文件保存在系统下载目录';
-    if (!list.length) {
-      if (empty) show(empty);
-      box.innerHTML = '';
-      return;
-    }
-    if (empty) hide(empty);
     var html = '';
     // 上传任务（队列）
     for (var u = 0; tab === 'upload' && u < ups.length; u++) {
@@ -772,11 +861,52 @@
         + icHtml
         + '<div class="transfer-info"><div class="transfer-name">' + esc(nm) + '</div>'
         + '<div class="transfer-sub">' + esc(sz) + ' · ' + esc(label) + '</div></div>'
-        + mainBtn + '<button class="transfer-del" data-i="' + i + '" title="删除记录">×</button>'
+        + mainBtn + '<button class="up-del" data-delname="' + esc(nm) + '" title="删除">×</button>'
         + '</div>';
     }
+    // 追加系统下载目录中已完成的文件（即使localStorage记录被清也能显示）
+    if (tab !== 'upload' && bridge && bridge.listDownloadedFiles) {
+      var diskFiles = [];
+      try { diskFiles = JSON.parse(bridge.listDownloadedFiles() || '[]'); } catch(e) {}
+      var recordNames = {};
+      arr.forEach(function(t){ if(t.name) recordNames[t.name] = true; });
+      diskFiles.forEach(function(f) {
+        if (recordNames[f.name]) return; // 记录里已有就不重复
+        var icName = iconForName(f.name);
+        var sz = fmtSize(f.size);
+        html += '<div class="transfer-item">'
+          + '<div class="transfer-ic ic-' + icName + '" data-icon="' + icName + '"></div>'
+          + '<div class="transfer-info"><div class="transfer-name">' + esc(f.name) + '</div>'
+          + '<div class="transfer-sub">' + esc(sz) + ' · 已下载</div></div>'
+          + '<button class="transfer-open" data-disk="' + esc(f.name) + '">打开</button>'
+          + '<button class="up-del" data-delname="' + esc(f.name) + '" title="删除">×</button>'
+          + '</div>';
+      });
+    }
+    if (html.trim()) { if (empty) hide(empty); }
+    else { if (empty) show(empty); }
     box.innerHTML = html;
-    // 注入动态生成的类型徽章图标（修复传输列表图标不显示）
+    // 磁盘文件打开按钮
+    box.querySelectorAll('.transfer-open[data-disk]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var name = btn.getAttribute('data-disk');
+        if (bridge.openFile) bridge.openFile(name);
+      });
+    });
+    box.querySelectorAll('.up-del[data-delname]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var name = btn.getAttribute('data-delname');
+        showConfirm('删除文件 ' + name + '？', function(){
+          if (bridge.deleteDownloadedFile) bridge.deleteDownloadedFile(name);
+          if (state.transfers) {
+            var idx = state.transfers.findIndex(function(t){ return t.name === name; });
+            if (idx >= 0) { state.transfers.splice(idx, 1); saveTransfers(); }
+          }
+          toast('已删除'); renderTransfers();
+        });
+      });
+    });
     injectIcons(box);
     // 打开按钮：apk 走安装程序，其他走系统推荐打开方式
     box.querySelectorAll('.transfer-open').forEach(function (btn) {
@@ -871,45 +1001,18 @@
         var idx = Number(btn.getAttribute('data-i'));
         var t = state.transfers && state.transfers[idx];
         if (!t) return;
-        var isDone = (t.status === 'completed' || t.status === 'done' || Number(t.status) === 8 || Number(t.status) === 16);
-        var delFile = function () {
-          // 删除原生任务（会清理半成品）
+        showConfirm('删除文件 ' + (t.name || '') + '？', function(){
           if (t.stream && Number(t.id) >= 900000000 && bridge && bridge.deleteDownloadTask) {
             try { bridge.deleteDownloadTask(Number(t.id)); } catch (e2) {}
+          }
+          if (bridge.deleteDownloadedFile && t.name) {
+            try { bridge.deleteDownloadedFile(t.name); } catch(e3) {}
           }
           state.transfers.splice(idx, 1);
           saveTransfers();
           renderTransfers();
-          toast('已删除传输记录「' + (t.name || '') + '」');
-        };
-        // 已完成下载：询问是否同时删除磁盘文件
-        if (isDone && t.name && bridge && bridge.deleteDownloadedFile) {
-          var items = [
-            { label: '仅删记录', cls: '', fn: function () { closeSheet(); delFile(); } },
-            { label: '删记录和文件', cls: 'warn', fn: function () {
-                closeSheet();
-                try { bridge.deleteDownloadedFile(t.name); } catch (e3) {}
-                delFile();
-              } }
-          ];
-          $('sheet-title').textContent = t.name || '未命名';
-          var grid = $('sheet-grid');
-          grid.innerHTML = '';
-          items.forEach(function (it) {
-            var el = document.createElement('div');
-            el.className = 'sheet-grid-item ' + it.cls;
-            var ic = document.createElement('div'); ic.className = 'sgi-icon';
-            ic.textContent = it.label;
-            el.appendChild(ic);
-            el.title = it.label;
-            el.addEventListener('click', it.fn);
-            grid.appendChild(el);
-          });
-          grid.style.gridTemplateColumns = 'repeat(2,1fr)';
-          show($('action-sheet'));
-          return;
-        }
-        delFile();
+          toast('已删除');
+        });
       });
     });
     // 上传任务：取消 / 重试 / 移除记录
@@ -4658,9 +4761,9 @@
     return true;
   };
 
+  function saveTransfersTab() { try { localStorage.setItem('pan_ttab', state.transferTab); } catch(e){} }
   // ---------- 初始化 ----------
   function init() {
-    // 注入所有静态 data-icon 图标（含搜索栏 search/x-circle、tab、工具栏等）
     injectIcons();
     // 底部标签切换
     document.querySelectorAll('#tabbar .tab').forEach(function (tab) {
