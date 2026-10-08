@@ -1,9 +1,8 @@
-name: Build & Release APK
+name: Build APK
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   workflow_dispatch:
 
 jobs:
@@ -20,9 +19,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # 覆盖 setup-android 默认 packages "tools platform-tools"：legacy "tools" 包已被
-      # Google 从 SDK 仓库移除，继续安装会报 "Failed to find package 'tools'" 导致步骤失败
-      # （2026-09 runner 镜像 / sdkmanager 16.0 漂移；显式只装 platform-tools）。
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -33,58 +29,14 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      # 计算版本号：统一采用语义化版本 x.y.z（versionName）。
-      #   versionCode 一律由 run_number 单调递增派生（1000+run），保证任何版本覆盖安装都安全（永不回退）。
-      #   tag 触发：versionName= tag 去 v（如 v1.0.0→1.0.0）；非 tag 触发：versionName=1.0.<run_number>
-      #   release_tag（git tag 名）：tag 触发用 tag 名；非 tag 触发用 dev-<run_number>（仅作为 release 标识）。
-      - name: Compute version & release tag
-        id: ver
+      - name: Build Debug APK
         run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG="${{ github.ref_name }}"          # 例如 v1.0.0
-            VN="${TAG#v}"                          # 1.0.0
-            echo "version_name=$VN" >> "$GITHUB_OUTPUT"
-            echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "version_code=$(( 1000 + ${{ github.run_number }} ))" >> "$GITHUB_OUTPUT"
-          else
-            echo "version_name=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-            echo "release_tag=dev-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-            echo "version_code=$(( 1000 + ${{ github.run_number }} ))" >> "$GITHUB_OUTPUT"
-          fi
-
-      # 构建（正式签名 pan.keystore，来自 Secrets，保证可覆盖安装）
-      - name: Build APK (signed)
-        run: |
-          chmod +x scripts/build.sh
-          bash scripts/build.sh
-        env:
-          VERSION_CODE: ${{ steps.ver.outputs.version_code }}
-          VERSION_NAME: ${{ steps.ver.outputs.version_name }}
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
-          ANDROID_KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
-          ANDROID_KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 123pan-mobile-apk
-          path: build/*.apk
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-
-      # 自动发布 Release：每次构建都发布到 Releases。用 gh CLI 创建，明确可诊断。
-      #   全部发布为正式版（不带 prerelease）；正式 tag 触发额外标记为 latest
-      - name: Publish Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          TAG="${{ steps.ver.outputs.release_tag }}"
-          ARGS=(--generate-notes --title "${{ steps.ver.outputs.version_name }}")
-          # 全部正式发布。正式 tag(v*)再标记为 latest
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            ARGS+=(--latest)
-          fi
-          # 清理可能残留的同名 release/tag（异常时），保证能干净重发
-          gh release delete "$TAG" --yes --cleanup-tag >/dev/null 2>&1 || true
-          echo "==> gh release create $TAG ${ARGS[*]}"
-          gh release create "$TAG" build/*.apk "${ARGS[@]}"
