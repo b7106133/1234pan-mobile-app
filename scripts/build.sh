@@ -6,7 +6,7 @@
 #   ANDROID_BUILD_TOOLS / ANDROID_PLATFORM_JAR  覆盖 SDK 路径
 #   VERSION_CODE / VERSION_NAME                  覆盖 versionCode / versionName（未设置时自动迭代）
 #   KEYSTORE_B64 / ANDROID_KEYSTORE_PASS / ANDROID_KEYSTORE_ALIAS   正式签名（CI Secrets）
-#   未设置 KEYSTORE_B64 时：若 ANDROID_KEYSTORE 指定则用之，否则用 debug.keystore
+#   未设置 KEYSTORE_B64 时：优先用仓库内的 huangtao新.jks；若 ANDROID_KEYSTORE 指定则用之；否则失败
 set -e
 
 BT="${ANDROID_BUILD_TOOLS:-$ANDROID_HOME/build-tools/34.0.0}"
@@ -44,67 +44,27 @@ sed -E "s/android:versionCode=\"[0-9]+\"/android:versionCode=\"$VERSION_CODE\"/;
     "$MAIN/AndroidManifest.xml" > "$W/AndroidManifest.xml"
 echo "=== injected manifest version ==="
 grep -E 'versionCode|versionName' "$W/AndroidManifest.xml"
-
-# 2.5) assets 加密：对 html/js/css 做异或混淆，防止静态特征提取
-#    每次构建前先还原 assets（避免二次加密），加密后 link，构建完成后还原
-python3 - "$MAIN/assets" <<'PYEOF'
-import os, sys
-adir = sys.argv[1]
-KEY = 0x5A
-# 先检测是否已加密：index.html 头应该是 <!DOCTYPE 或 <html
-need_decrypt = False
-idx = os.path.join(adir, 'index.html')
-with open(idx, 'rb') as f: head = f.read(20)
-if not head.startswith(b'<!DOCTYPE') and not head.startswith(b'<html'):
-    need_decrypt = True
-for root, dirs, files in os.walk(adir):
-    for f in files:
-        if f.endswith(('.html', '.js', '.css')):
-            fp = os.path.join(root, f)
-            with open(fp, 'rb') as fh: data = fh.read()
-            if need_decrypt:
-                data = bytes([b ^ KEY for b in data])
-            with open(fp, 'wb') as fh: fh.write(data)
-print(f'assets restored: encrypted={need_decrypt}')
-PYEOF
-
-# 加密 assets
-python3 - "$MAIN/assets" <<'PYEOF'
-import os, sys
-adir = sys.argv[1]
-KEY = 0x5A
-for root, dirs, files in os.walk(adir):
-    for f in files:
-        if f.endswith(('.html', '.js', '.css')):
-            fp = os.path.join(root, f)
-            with open(fp, 'rb') as fh: data = fh.read()
-            enc = bytes([b ^ KEY for b in data])
-            with open(fp, 'wb') as fh: fh.write(enc)
-            print(f'encrypted: {f}')
-PYEOF
-
 "$BT/aapt2" link -I "$ANDROID_JAR" --manifest "$W/AndroidManifest.xml" \
     -A "$MAIN/assets" -o "$W/base.apk" --java "$W/gen" --auto-add-overlay "$W/gateway.zip"
 
-# 构建完成后还原 assets 为明文，方便源码管理
-python3 - "$MAIN/assets" <<'PYEOF'
-import os, sys
-adir = sys.argv[1]
-KEY = 0x5A
-for root, dirs, files in os.walk(adir):
-    for f in files:
-        if f.endswith(('.html', '.js', '.css')):
-            fp = os.path.join(root, f)
-            with open(fp, 'rb') as fh: data = fh.read()
-            dec = bytes([b ^ KEY for b in data])
-            with open(fp, 'wb') as fh: fh.write(dec)
-print('assets restored to plaintext')
-PYEOF
+# 2.1) 解析 manifest 的 package，得到 aapt2 实际生成 R.java 的包路径
+APP_PKG=$(sed -nE 's/.*package="([^"]+)".*/\1/p' "$W/AndroidManifest.xml" | head -1)
+if [ -z "$APP_PKG" ]; then
+    echo "ERROR: cannot parse package from AndroidManifest.xml" >&2
+    exit 1
+fi
+R_JAVA="$W/gen/$(echo "$APP_PKG" | tr '.' '/' )/R.java"
+echo "=== app package=$APP_PKG, R.java=$R_JAVA ==="
+if [ ! -f "$R_JAVA" ]; then
+    echo "ERROR: R.java not found at $R_JAVA" >&2
+    find "$W/gen" -name 'R.java' 2>/dev/null
+    exit 1
+fi
 
 # 3) compile java
 find "$MAIN/java" -name '*.java' > "$W/sources.txt"
 javac -source 1.8 -target 1.8 -cp "$ANDROID_JAR" \
-    -d "$W/obj" @"$W/sources.txt" "$W/gen/com/yunpan/mobile/R.java" 2>&1 | head -30
+    -d "$W/obj" @"$W/sources.txt" "$R_JAVA" 2>&1 | head -30
 
 # 4) dex with d8
 "$BT/d8" --release --lib "$ANDROID_JAR" --output "$W/apk" \
@@ -131,23 +91,25 @@ PYEOF
 # 6) zipalign 4
 "$BT/zipalign" -f 4 "$W/apk/unaligned.apk" "$W/apk/aligned.apk"
 
-# 7) sign：必须使用正式 keystore（保证 Releases 签名稳定、可覆盖安装）。
-#    - CI：优先 Secrets 注入的 KEYSTORE_B64
-#    - 本地：ANDROID_KEYSTORE 指定正式 keystore（如 pan.keystore）
-#    未配置正式 keystore 时直接失败，绝不回退随机 debug.keystore（避免每次签名不同）。
-if [ -n "$KEYSTORE_B64" ]; then
+# 7) sign：优先用仓库内的 huangtao新.jks，其次 KEYSTORE_B64，再其次 ANDROID_KEYSTORE
+if [ -f "$ROOT/huangtao新.jks" ]; then
+    echo "=== sign with repo keystore (huangtao新.jks) ==="
+    KS="$ROOT/huangtao新.jks"
+    KS_PASS="${ANDROID_KEYSTORE_PASS:-b7988789}"
+    KS_ALIAS="${ANDROID_KEYSTORE_ALIAS:-huangtao}"
+elif [ -n "$KEYSTORE_B64" ]; then
     echo "=== sign with CI keystore (secrets) ==="
     echo "$KEYSTORE_B64" | base64 -d > "$W/ci.keystore"
     KS="$W/ci.keystore"
-    KS_PASS="${ANDROID_KEYSTORE_PASS:-123456}"
-    KS_ALIAS="${ANDROID_KEYSTORE_ALIAS:-pan}"
+    KS_PASS="${ANDROID_KEYSTORE_PASS:-b7988789}"
+    KS_ALIAS="${ANDROID_KEYSTORE_ALIAS:-huangtao}"
 elif [ -n "$ANDROID_KEYSTORE" ]; then
     echo "=== sign with ANDROID_KEYSTORE: $ANDROID_KEYSTORE ==="
     KS="$ANDROID_KEYSTORE"
-    KS_PASS="${ANDROID_KEYSTORE_PASS:-123456}"
-    KS_ALIAS="${ANDROID_KEYSTORE_ALIAS:-pan}"
+    KS_PASS="${ANDROID_KEYSTORE_PASS:-b7988789}"
+    KS_ALIAS="${ANDROID_KEYSTORE_ALIAS:-huangtao}"
 else
-    echo "ERROR: no signing keystore configured. Set KEYSTORE_B64 (CI Secrets) or ANDROID_KEYSTORE." >&2
+    echo "ERROR: no signing keystore configured." >&2
     exit 1
 fi
 "$BT/apksigner" sign --ks "$KS" \
