@@ -29,17 +29,17 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Build APK
-        run: |
-          chmod +x scripts/build.sh
-          bash scripts/build.sh
-        env:
-          ANDROID_KEYSTORE_PASS: b7988789
-          ANDROID_KEYSTORE_ALIAS: huangtao
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 123pan-mobile-apk
-          path: build/*.apk
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
