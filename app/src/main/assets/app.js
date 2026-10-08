@@ -5076,3 +5076,442 @@ function refreshDoneList() {
     scheduleUpdateBoot();
   }
 })();
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================================
+   主题外观 + 特效（移植模块）
+   ========================================================================= */
+(function () {
+  'use strict';
+
+  var THEME_KEY = 'pan_theme_v2';
+  var FX_LIST = ['fireflies', 'rain-light', 'rain-mid', 'rain-heavy',
+                 'snow', 'sakura', 'stars', 'aurora', 'meteor'];
+  var RAIN_GROUP = ['rain-light', 'rain-mid', 'rain-heavy'];
+
+  /* ==================== 主题 ==================== */
+  function curTheme() {
+    try { return localStorage.getItem(THEME_KEY) || 'black'; } catch (e) { return 'black'; }
+  }
+  function setTheme(name) {
+    try { localStorage.setItem(THEME_KEY, name); } catch (e) {}
+    document.documentElement.setAttribute('data-theme', name);
+    renderThemeCk();
+  }
+  function renderThemeCk() {
+    var cur = curTheme();
+    document.querySelectorAll('.theme-row').forEach(function (row) {
+      var ck = row.querySelector('.theme-ck');
+      if (!ck) return;
+      ck.classList.toggle('on', row.getAttribute('data-theme') === cur);
+    });
+  }
+  // 启动时立即应用主题（避免闪烁）
+  document.documentElement.setAttribute('data-theme', curTheme());
+
+  /* ==================== 特效开关读写 ==================== */
+  function fxOn(name) {
+    try {
+      if (name === 'fireflies') {
+        var v1 = localStorage.getItem('pan_fx_fireflies');
+        if (v1 !== null) return v1 === '1';
+        // 萤火虫默认关闭
+        return false;
+      }
+      return localStorage.getItem('pan_fx_' + name) === '1';
+    } catch (e) { return false; }
+  }
+  function setFx(name, on) {
+    try { localStorage.setItem('pan_fx_' + name, on ? '1' : '0'); } catch (e) {}
+    if (name === 'fireflies') {
+      try { localStorage.setItem('pan_fireflies_on', on ? '1' : '0'); } catch (e) {}
+    }
+    if (on && RAIN_GROUP.indexOf(name) >= 0) {
+      RAIN_GROUP.forEach(function (other) {
+        if (other !== name) {
+          try { localStorage.setItem('pan_fx_' + other, '0'); } catch (e2) {}
+        }
+      });
+    }
+  }
+
+  /* ==================== 容器 ==================== */
+  function ensureBox(name) {
+    var box = document.getElementById(name);
+    if (!box) {
+      box = document.createElement('div');
+      box.id = name;
+      document.body.appendChild(box);
+    }
+    return box;
+  }
+  // 适配本版：只在文件页/传输页显示；进预览/二级页/回收站/我的页自动隐藏
+  function canShow() {
+    var view = (window.state && window.state.view) || 'files';
+    if (view !== 'files' && view !== 'transfers') return false;
+    var overlayIds = ['doc-viewer-overlay', 'text-viewer-overlay',
+      'video-player-overlay', 'audio-player-overlay', 'image-preview-overlay'];
+    for (var i = 0; i < overlayIds.length; i++) {
+      if (document.getElementById(overlayIds[i])) return false;
+    }
+    var covers = document.querySelectorAll('.page-cover');
+    for (var j = 0; j < covers.length; j++) {
+      if (!covers[j].classList.contains('hidden')) return false;
+    }
+    return true;
+  }
+
+  /* ==================== 生成器 ==================== */
+  function spawnFalling(cls, box, sizeMin, sizeMax, durMin, durMax, swayMin, swayMax, swayDurMin, swayDurMax) {
+    var el = document.createElement('div');
+    el.className = cls;
+    var size = sizeMin + Math.random() * (sizeMax - sizeMin);
+    var dur = durMin + Math.random() * (durMax - durMin);
+    var sway = swayMin + Math.random() * (swayMax - swayMin);
+    var swayDur = swayDurMin + Math.random() * (swayDurMax - swayDurMin);
+    var seg = Math.floor(Math.random() * 12);
+    var leftPct = (seg * (100 / 12)) + Math.random() * (100 / 12);
+    el.style.left = leftPct.toFixed(2) + '%';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.animationDuration = dur + 's, ' + swayDur + 's';
+    el.style.animationDelay = (-Math.random() * dur) + 's, ' + (-Math.random() * swayDur) + 's';
+    el.style.setProperty('--sway', sway.toFixed(1) + 'px');
+    el.style.setProperty('--swayDir', Math.random() < 0.5 ? '1' : '-1');
+    el.style.setProperty('--rot', ((Math.random() * 720) - 360).toFixed(0) + 'deg');
+    box.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + 1.5) * 1000);
+  }
+  function spawnRain(box, opt) {
+    var el = document.createElement('div');
+    el.className = 'raindrop';
+    var h = opt.minH + Math.random() * (opt.maxH - opt.minH);
+    var dur = opt.minDur + Math.random() * (opt.maxDur - opt.minDur);
+    var sway = 2 + Math.random() * 5;
+    var swayDur = 0.6 + Math.random() * 0.8;
+    el.style.left = (Math.random() * 110 - 5) + '%';
+    el.style.height = h + 'px';
+    el.style.animationDuration = dur + 's, ' + swayDur + 's';
+    el.style.animationDelay = (-Math.random() * dur) + 's, ' + (-Math.random() * swayDur) + 's';
+    el.style.setProperty('--sway', sway.toFixed(1) + 'px');
+    el.style.setProperty('--swayDir', Math.random() < 0.5 ? '1' : '-1');
+    el.style.opacity = (opt.minOp + Math.random() * (opt.maxOp - opt.minOp)).toFixed(2);
+    box.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + 1.5) * 1000);
+  }
+  function spawnMeteor() {
+    if (!fxOn('meteor') || !canShow()) return;
+    var box = ensureBox('meteor');
+    var el = document.createElement('div');
+    el.className = 'meteor';
+    var dirs = [
+      { sx: '-25vw', sy: '-10vh', ex: '140vw', ey: '70vh',  ang: '35deg' },
+      { sx: '125vw', sy: '-10vh', ex: '-40vw', ey: '70vh',  ang: '145deg' },
+      { sx: '50vw',  sy: '-10vh', ex: '50vw',  ey: '120vh', ang: '90deg' },
+      { sx: '-25vw', sy: '40vh',  ex: '140vw', ey: '40vh',  ang: '0deg' },
+      { sx: '-25vw', sy: '110vh', ex: '120vw', ey: '0vh',   ang: '-35deg' },
+      { sx: '125vw', sy: '110vh', ex: '-20vw', ey: '0vh',   ang: '-145deg' },
+      { sx: '30vw',  sy: '-10vh', ex: '110vw', ey: '120vh', ang: '60deg' },
+      { sx: '70vw',  sy: '-10vh', ex: '-10vw', ey: '120vh', ang: '120deg' }
+    ];
+    var d = dirs[(Math.random() * dirs.length) | 0];
+    el.style.setProperty('--sx', d.sx);
+    el.style.setProperty('--sy', d.sy);
+    el.style.setProperty('--ex', d.ex);
+    el.style.setProperty('--ey', d.ey);
+    el.style.setProperty('--ang', d.ang);
+    var dur = 1.4 + Math.random() * 1.2;
+    el.style.animationDuration = dur + 's';
+    box.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + 0.4) * 1000);
+  }
+
+  /* ==================== 启动器 ==================== */
+  var _timers = {};
+
+  function startRain(name, opt) {
+    if (_timers[name]) return;
+    var box = ensureBox(name);
+    function loop() {
+      if (!fxOn(name) || !canShow()) { _timers[name] = null; return; }
+      var batch = 1 + ((Math.random() * 3) | 0);
+      for (var i = 0; i < batch; i++) spawnRain(box, opt);
+      _timers[name] = setTimeout(loop, opt.intervalMin + Math.random() * (opt.intervalMax - opt.intervalMin));
+    }
+    loop();
+  }
+  function stopRain(name) {
+    if (_timers[name]) { clearTimeout(_timers[name]); _timers[name] = null; }
+    var box = document.getElementById(name);
+    if (box) box.innerHTML = '';
+  }
+  var RAIN_OPTS = {
+    'rain-light': { minH: 8,  maxH: 16, minDur: 1.6, maxDur: 2.6, minOp: 0.4,  maxOp: 0.75, intervalMin: 320, intervalMax: 780 },
+    'rain-mid':   { minH: 14, maxH: 26, minDur: 1.0, maxDur: 1.8, minOp: 0.55, maxOp: 0.9,  intervalMin: 160, intervalMax: 420 },
+    'rain-heavy': { minH: 20, maxH: 40, minDur: 0.7, maxDur: 1.2, minOp: 0.7,  maxOp: 1.0,  intervalMin: 60,  intervalMax: 200 }
+  };
+
+  function startSnow() {
+    if (_timers['snow']) return;
+    var box = ensureBox('snow');
+    function loop() {
+      if (!fxOn('snow') || !canShow()) { _timers['snow'] = null; return; }
+      var batch = 1 + ((Math.random() * 3) | 0);
+      for (var i = 0; i < batch; i++) spawnFalling('snowflake', box, 4, 9, 6, 11, 8, 20, 2.4, 4.5);
+      _timers['snow'] = setTimeout(loop, 260 + Math.random() * 480);
+    }
+    loop();
+  }
+  function stopSnow() {
+    if (_timers['snow']) { clearTimeout(_timers['snow']); _timers['snow'] = null; }
+    var box = document.getElementById('snow');
+    if (box) box.innerHTML = '';
+  }
+
+  function startSakura() {
+    if (_timers['sakura']) return;
+    var box = ensureBox('sakura');
+    function loop() {
+      if (!fxOn('sakura') || !canShow()) { _timers['sakura'] = null; return; }
+      var batch = 1 + ((Math.random() * 3) | 0);
+      for (var i = 0; i < batch; i++) spawnFalling('sakura', box, 10, 16, 7, 13, 12, 28, 2.6, 5.0);
+      _timers['sakura'] = setTimeout(loop, 320 + Math.random() * 620);
+    }
+    loop();
+  }
+  function stopSakura() {
+    if (_timers['sakura']) { clearTimeout(_timers['sakura']); _timers['sakura'] = null; }
+    var box = document.getElementById('sakura');
+    if (box) box.innerHTML = '';
+  }
+
+  function buildFireflies() {
+    var box = ensureBox('fireflies');
+    box.innerHTML = '';
+    var w = window.innerWidth || 360;
+    var n = Math.max(8, Math.min(22, Math.round(w / 32)));
+    for (var i = 0; i < n; i++) {
+      var el = document.createElement('div');
+      el.className = 'ff';
+      var d1 = 18 + Math.random() * 22;
+      var d2 = 2.6 + Math.random() * 2.4;
+      var d3 = 3.5 + Math.random() * 3.5;
+      el.style.left = (Math.random() * 100) + '%';
+      el.style.top = (Math.random() * 100) + '%';
+      el.style.animationDuration = d1 + 's, ' + d2 + 's, ' + d3 + 's';
+      el.style.animationDelay = (-Math.random() * 8) + 's, ' + (-Math.random() * 4) + 's, ' + (-Math.random() * 5) + 's';
+      var s = 3 + Math.random() * 3;
+      el.style.width = s + 'px';
+      el.style.height = s + 'px';
+      box.appendChild(el);
+    }
+  }
+  function buildStars() {
+    var box = ensureBox('stars');
+    box.innerHTML = '';
+    var w = window.innerWidth || 360;
+    var n = Math.max(30, Math.min(70, Math.round(w / 14)));
+    for (var i = 0; i < n; i++) {
+      var el = document.createElement('div');
+      el.className = 'star';
+      el.style.left = (Math.random() * 100) + '%';
+      el.style.top = (Math.random() * 100) + '%';
+      var s = 2 + Math.random() * 2.5;
+      el.style.width = s + 'px';
+      el.style.height = s + 'px';
+      var d = 1.6 + Math.random() * 3;
+      el.style.animationDuration = d + 's';
+      el.style.animationDelay = (-Math.random() * d) + 's';
+      box.appendChild(el);
+    }
+  }
+  function buildAurora() {
+    var box = ensureBox('aurora');
+    box.innerHTML = '';
+    var colors = ['rgba(120,170,255,0.55)', 'rgba(180,130,255,0.50)', 'rgba(120,220,200,0.50)', 'rgba(255,180,220,0.45)'];
+    for (var i = 0; i < 5; i++) {
+      var el = document.createElement('div');
+      el.className = 'aurora-blob';
+      var size = 180 + Math.random() * 180;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.left = (Math.random() * 90) + '%';
+      el.style.top = (Math.random() * 80) + '%';
+      el.style.background = 'radial-gradient(circle, ' + colors[i % colors.length] + ' 0%, rgba(0,0,0,0) 70%)';
+      var d = 6 + Math.random() * 4;
+      el.style.animationDuration = d + 's';
+      el.style.animationDelay = (-Math.random() * d) + 's';
+      box.appendChild(el);
+    }
+  }
+  function startMeteor() {
+    if (_timers['meteor']) return;
+    function loop() {
+      if (!fxOn('meteor') || !canShow()) { _timers['meteor'] = null; return; }
+      var batch = 1 + ((Math.random() * 3) | 0);
+      for (var i = 0; i < batch; i++) setTimeout(spawnMeteor, i * 120);
+      _timers['meteor'] = setTimeout(loop, 1400 + Math.random() * 2600);
+    }
+    loop();
+  }
+  function stopMeteor() {
+    if (_timers['meteor']) { clearTimeout(_timers['meteor']); _timers['meteor'] = null; }
+    var box = document.getElementById('meteor');
+    if (box) box.innerHTML = '';
+  }
+
+  /* ==================== 渲染主循环 ==================== */
+  function render() {
+    if (document.hidden) return;
+    var allow = canShow();
+
+    RAIN_GROUP.forEach(function (name) {
+      var box = document.getElementById(name);
+      if (!box) return;
+      if (fxOn(name) && allow) { box.classList.add('on'); startRain(name, RAIN_OPTS[name]); }
+      else { box.classList.remove('on'); stopRain(name); }
+    });
+
+    var snowBox = document.getElementById('snow');
+    if (snowBox) {
+      if (fxOn('snow') && allow) { snowBox.classList.add('on'); startSnow(); }
+      else { snowBox.classList.remove('on'); stopSnow(); }
+    }
+    var sakuraBox = document.getElementById('sakura');
+    if (sakuraBox) {
+      if (fxOn('sakura') && allow) { sakuraBox.classList.add('on'); startSakura(); }
+      else { sakuraBox.classList.remove('on'); stopSakura(); }
+    }
+    var ffBox = document.getElementById('fireflies');
+    if (ffBox) {
+      if (fxOn('fireflies') && allow) {
+        if (!ffBox.classList.contains('on') || ffBox.children.length === 0) buildFireflies();
+        ffBox.classList.add('on');
+      } else ffBox.classList.remove('on');
+    }
+    var starsBox = document.getElementById('stars');
+    if (starsBox) {
+      if (fxOn('stars') && allow) {
+        if (starsBox.children.length === 0) buildStars();
+        starsBox.classList.add('on');
+      } else starsBox.classList.remove('on');
+    }
+    var auroraBox = document.getElementById('aurora');
+    if (auroraBox) {
+      if (fxOn('aurora') && allow) {
+        if (auroraBox.children.length === 0) buildAurora();
+        auroraBox.classList.add('on');
+      } else auroraBox.classList.remove('on');
+    }
+    var meteorBox = document.getElementById('meteor');
+    if (meteorBox) {
+      if (fxOn('meteor') && allow) { meteorBox.classList.add('on'); startMeteor(); }
+      else { meteorBox.classList.remove('on'); stopMeteor(); }
+    }
+  }
+
+  /* ==================== UI 绑定 ==================== */
+  function renderAllToggles() {
+    FX_LIST.forEach(function (name) {
+      var tg = document.getElementById(name + '-toggle');
+      if (tg) tg.classList.toggle('on', fxOn(name));
+    });
+  }
+  function bindFxToggle(name) {
+    var tg = document.getElementById(name + '-toggle');
+    if (!tg || tg._fxBound) return;
+    tg._fxBound = true;
+    tg.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      var next = !fxOn(name);
+      setFx(name, next);
+      renderAllToggles();
+      render();
+      try {
+        if (typeof toast === 'function') {
+          var label = ({
+            fireflies: '暖光萤火', 'rain-light': '细雨轻落', 'rain-mid': '帘外中雨', 'rain-heavy': '倾盆大雨',
+            snow: '雪落无声', sakura: '樱吹雪', stars: '星河璀璨', aurora: '流光呼吸', meteor: '流星划空'
+          })[name] || name;
+          toast(next ? (label + ' · 已开启') : (label + ' · 已关闭'));
+        }
+      } catch (e2) {}
+    });
+  }
+  function openThemePage() {
+    try {
+      if (typeof closeAllOverlays === 'function') closeAllOverlays();
+    } catch (e) {}
+    var el = document.getElementById('page-theme-setting');
+    if (el) el.classList.remove('hidden');
+    renderAllToggles();
+    renderThemeCk();
+    render();
+  }
+  function closeThemePage() {
+    var el = document.getElementById('page-theme-setting');
+    if (el) el.classList.add('hidden');
+  }
+  function bindUI() {
+    var entry = document.getElementById('mine-theme-setting');
+    if (entry && !entry._fxEntryBound) {
+      entry._fxEntryBound = true;
+      entry.addEventListener('click', openThemePage);
+    }
+    var back = document.getElementById('theme-setting-back');
+    if (back && !back._fxBackBound) {
+      back._fxBackBound = true;
+      back.addEventListener('click', closeThemePage);
+    }
+    // 主题外观点击
+    document.querySelectorAll('.theme-row').forEach(function (row) {
+      if (row._themeBound) return;
+      row._themeBound = true;
+      row.addEventListener('click', function () {
+        var name = row.getAttribute('data-theme');
+        if (name) setTheme(name);
+      });
+    });
+    FX_LIST.forEach(bindFxToggle);
+  }
+
+  /* ==================== 返回键挂钩 ==================== */
+  try {
+    var _prevBack = window.__handleBack;
+    window.__handleBack = function () {
+      var el = document.getElementById('page-theme-setting');
+      if (el && !el.classList.contains('hidden')) { closeThemePage(); return true; }
+      if (typeof _prevBack === 'function') return _prevBack.apply(this, arguments);
+      return false;
+    };
+  } catch (e) {}
+
+  /* ==================== 初始化 ==================== */
+  function init() {
+    FX_LIST.forEach(ensureBox);
+    bindUI();
+    renderAllToggles();
+    renderThemeCk();
+    render();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 800);
+  setTimeout(init, 2200);
+  setInterval(render, 500);
+
+  window.__theme = { set: setTheme, get: curTheme };
+  window.__fx = { isOn: fxOn, set: setFx };
+})();
+
+
