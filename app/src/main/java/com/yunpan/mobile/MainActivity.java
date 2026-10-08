@@ -373,11 +373,18 @@ public class MainActivity extends Activity {
             }
             outDir.mkdirs();
             byte KEY = 0x5A;
-            // 根目录文件
-            String[] rootFiles = {"index.html", "app.js", "style.css", "qrcode.min.js"};
-            for (String f : rootFiles) {
-                decryptOne(f, new java.io.File(outDir, f), KEY);
-            }
+
+            
+            // 根目录文件（明文直接拷贝）
+String[] rootFiles = {"index.html", "app.js", "style.css", "qrcode.min.js"};
+for (String f : rootFiles) {
+    decryptOne(f, new java.io.File(outDir, f), (byte) 0);
+}
+
+
+
+            
+            
             // lib目录
             java.io.File libDir = new java.io.File(outDir, "lib");
             libDir.mkdirs();
@@ -391,15 +398,14 @@ public class MainActivity extends Activity {
     }
 
     private void decryptOne(String assetPath, java.io.File outFile, byte KEY) throws Exception {
-        java.io.InputStream is = getAssets().open(assetPath);
-        byte[] data = new byte[is.available()];
-        is.read(data);
-        is.close();
-        byte[] dec = new byte[data.length];
-        for (int i = 0; i < data.length; i++) dec[i] = (byte) (data[i] ^ KEY);
-        java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
-        fos.write(dec);
-        fos.close();
+    java.io.InputStream is = getAssets().open(assetPath);
+    byte[] data = new byte[is.available()];
+    is.read(data);
+    is.close();
+    java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+    fos.write(data);
+    fos.close();
+}
     }
     private void deleteRecursive(java.io.File f) {
         if (f.isDirectory()) {
