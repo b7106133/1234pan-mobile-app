@@ -27,7 +27,6 @@
     <main id="content">
       <!-- 文件视图 -->
       <section id="view-files" class="view">
-        <!-- 全局搜索栏 -->
         <div id="search-bar">
           <span class="search-icon" data-icon="search"></span>
           <input id="search-input" type="text" placeholder="搜索全盘文件" autocomplete="off" enterkeyhint="search">
@@ -39,7 +38,6 @@
           <span id="top-refresh" data-icon="refresh" title="刷新" style="flex:0 0 auto;color:var(--fg3);padding:4px;cursor:pointer;"></span>
         </div>
         <div id="file-list"></div>
-        <!-- 底部工具栏：整理 / 上传 / 新建 -->
         <div id="file-toolbar">
           <div class="tool-btn" id="tool-organize" data-tool="organize">
             <span class="tool-icon" data-icon="folder-move"></span><span>整理</span>
@@ -57,7 +55,6 @@
             <span class="tool-icon" data-icon="find-dup"></span><span>去重</span>
           </div>
         </div>
-        <!-- 多选（整理）操作栏 -->
         <div id="select-toolbar" class="hidden">
           <span id="select-count">已选 0 项</span>
           <button id="select-cancel" class="st-btn">取消</button>
@@ -137,7 +134,7 @@
         <div class="mine-item mine-item-btn" id="mine-web"><span class="mine-label"><span class="mi-icon" data-icon="hdd"></span>网页端管理</span><span class="mine-arrow">›</span></div>
 
         <div class="mine-section-title">偏好设置</div>
-        <div class="mine-item mine-item-btn" id="mine-theme"><span class="mine-label"><span class="mi-icon" data-icon="sun"></span>主题模式</span><span class="mine-val" id="theme-val">跟随系统</span><span class="mine-arrow">›</span></div>
+        <div class="mine-item mine-item-btn" id="mine-theme-setting"><span class="mine-label"><span class="mi-icon" data-icon="sun"></span>主题设置</span><span class="mine-arrow">›</span></div>
         <div class="mine-item mine-item-btn" id="mine-keep-screen"><span class="mine-label"><span class="mi-icon" data-icon="bulb"></span>屏幕常亮</span><span class="ui-switch" id="keep-switch"></span></div>
         <div class="mine-item mine-item-btn" id="mine-autoupdate"><span class="mine-label"><span class="mi-icon" data-icon="refresh"></span>自动更新</span><span class="ui-switch" id="upd-switch"></span></div>
 
@@ -178,7 +175,7 @@
   </div>
 </div>
 
-<!-- 自定义确认弹窗（替代原生 confirm） -->
+<!-- 自定义确认弹窗 -->
 <div id="confirm-modal" class="modal hidden">
   <div class="modal-mask" data-close></div>
   <div class="modal-panel">
@@ -191,7 +188,7 @@
   </div>
 </div>
 
-<!--自动更新提示弹窗 -->
+<!-- 自动更新提示弹窗 -->
 <div id="update-modal" class="modal hidden">
   <div class="modal-mask" data-close></div>
   <div class="modal-panel">
@@ -216,6 +213,7 @@
     </div>
   </div>
 </div>
+
 <!-- 上传方式选择弹窗 -->
 <div id="upload-modal" class="modal hidden">
   <div class="modal-mask" data-close></div>
@@ -250,7 +248,7 @@
   </div>
 </div>
 
-<!-- 账号列表弹层（覆盖式底部 sheet，不占用"我的"页布局高度；只列其他账号+末尾添加，不重复当前账号） -->
+<!-- 账号列表弹层 -->
 <div id="account-sheet" class="sheet hidden">
   <div class="sheet-mask" data-close></div>
   <div class="sheet-panel">
@@ -260,7 +258,7 @@
   </div>
 </div>
 
-<!-- 账号操作菜单（切换/删除） -->
+<!-- 账号操作菜单 -->
 <div id="account-action" class="sheet hidden">
   <div class="sheet-mask" data-close></div>
   <div class="sheet-panel">
@@ -334,7 +332,7 @@
   </div>
 </div>
 
-<!-- 文件预览页（图片 / 音视频 / 文本 / PDF / Word / Excel） -->
+<!-- 文件预览页 -->
 <div id="page-preview" class="page-cover hidden">
   <div class="pc-head">
     <span class="pc-back" id="pv-back">‹</span>
@@ -400,13 +398,8 @@
     </div>
   </div>
 </div>
-      </div>
-    </div>
-    <div class="sheet-item cancel" data-close>关闭</div>
-  </div>
-</div>
 
-<!-- 创建分享配置面板（选有效期 + 分享形式） -->
+<!-- 创建分享配置面板 -->
 <div id="share-config-modal" class="sheet hidden">
   <div class="sheet-mask" data-close></div>
   <div class="sheet-panel sc-panel">
@@ -488,6 +481,61 @@
   </div>
 </div>
 
+<!-- ============ 主题设置（二级页） ============ -->
+<div id="page-theme-setting" class="page-cover hidden">
+  <div class="pc-head">
+    <span class="pc-back" id="theme-setting-back">‹</span>
+    <span class="pc-title">主题设置</span>
+    <span style="width:36px;"></span>
+  </div>
+  <div class="pc-body">
+
+    <!-- 主题外观（14 套） -->
+    <div class="rc-tip">主题外观</div>
+    <div class="mine-card-box" style="margin:0 0 12px;">
+      <div class="mine-row theme-row" data-theme="black"><span class="mine-row-left"><span class="theme-dot" style="background:#1A1D24;"></span>全玻璃立体·黑</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="white"><span class="mine-row-left"><span class="theme-dot" style="background:#F6F8FC;border:1px solid rgba(15,23,42,0.12);"></span>全玻璃立体·白</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="ios"><span class="mine-row-left"><span class="theme-dot" style="background:linear-gradient(135deg,#4F7CFF,#6C5CE7);"></span>iOS 拟物</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="minimal"><span class="mine-row-left"><span class="theme-dot" style="background:#FFFFFF;border:1px solid rgba(15,23,42,0.18);"></span>极简纯白</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="red"><span class="mine-row-left"><span class="theme-dot" style="background:#FF3B30;"></span>热烈红</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="orange"><span class="mine-row-left"><span class="theme-dot" style="background:#FF9500;"></span>活力橙</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="yellow"><span class="mine-row-left"><span class="theme-dot" style="background:#FFCC00;"></span>阳光黄</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="green"><span class="mine-row-left"><span class="theme-dot" style="background:#34C759;"></span>自然绿</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="cyan"><span class="mine-row-left"><span class="theme-dot" style="background:#00C7BE;"></span>湖水青</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="blue"><span class="mine-row-left"><span class="theme-dot" style="background:#007AFF;"></span>天空蓝</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="purple"><span class="mine-row-left"><span class="theme-dot" style="background:#AF52DE;"></span>梦幻紫</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="pink"><span class="mine-row-left"><span class="theme-dot" style="background:#FF2D55;"></span>少女粉</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+      <div class="mine-row theme-row" data-theme="brown"><span class="mine-row-left"><span class="theme-dot" style="background:#8B4513;"></span>复古棕</span><span class="mine-row-right"><span class="theme-ck"></span></span></div>
+    </div>
+
+    <!-- 动态特效（9 个） -->
+    <div class="rc-tip">动态特效</div>
+    <div class="mine-card-box" style="margin:0 0 12px;">
+      <div class="mine-row" id="set-fireflies"><span class="mine-row-left">暖光萤火</span><span class="mine-row-right"><span class="ff-toggle" id="fireflies-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-rain-light"><span class="mine-row-left">细雨轻落</span><span class="mine-row-right"><span class="ff-toggle" id="rain-light-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-rain-mid"><span class="mine-row-left">帘外中雨</span><span class="mine-row-right"><span class="ff-toggle" id="rain-mid-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-rain-heavy"><span class="mine-row-left">倾盆大雨</span><span class="mine-row-right"><span class="ff-toggle" id="rain-heavy-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-snow"><span class="mine-row-left">雪落无声</span><span class="mine-row-right"><span class="ff-toggle" id="snow-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-sakura"><span class="mine-row-left">樱吹雪</span><span class="mine-row-right"><span class="ff-toggle" id="sakura-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-stars"><span class="mine-row-left">星河璀璨</span><span class="mine-row-right"><span class="ff-toggle" id="stars-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-aurora"><span class="mine-row-left">流光呼吸</span><span class="mine-row-right"><span class="ff-toggle" id="aurora-toggle"><span class="ff-knob"></span></span></span></div>
+      <div class="mine-row" id="set-meteor"><span class="mine-row-left">流星划空</span><span class="mine-row-right"><span class="ff-toggle" id="meteor-toggle"><span class="ff-knob"></span></span></span></div>
+    </div>
+    <div class="rc-tip" style="color:var(--fg3);font-size:12px;">更多主题与特效开发中，敬请期待</div>
+  </div>
+</div>
+
+<!-- 特效容器 -->
+<div id="fireflies"></div>
+<div id="rain-light"></div>
+<div id="rain-mid"></div>
+<div id="rain-heavy"></div>
+<div id="snow"></div>
+<div id="sakura"></div>
+<div id="stars"></div>
+<div id="aurora"></div>
+<div id="meteor"></div>
+
 <!-- 隐藏的 SVG 图标定义 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 3v12M7 8l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -515,6 +563,18 @@
   <symbol id="i-broom" viewBox="0 0 24 24"><path d="M19 3l-7 7M8 12l-5 9 9-5M13 8l3 3M14 7l3 3M15 6l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-find-dup" viewBox="0 0 24 24"><rect x="3" y="3" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="9" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-crown" viewBox="0 0 24 24"><path d="M2 18l2-9 5 4 3-6 3 6 5-4 2 9H2zM4 22h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-folder-move" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 13h6M11 10l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 9l-6 6M9 9l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M3 6h12M3 12h9M3 18h6M17 4v12M14 13l3 3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-transfer" viewBox="0 0 24 24"><path d="M8.5 6v8.8M5.5 14.8L8.5 17.8l3-3M15.5 18v-8.8M12.5 9.2L15.5 6.2l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
 <button id="back-top" class="back-top hidden" title="回到顶部">
