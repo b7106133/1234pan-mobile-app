@@ -1,4 +1,3 @@
-```groovy
 buildscript {
     repositories {
         google()
