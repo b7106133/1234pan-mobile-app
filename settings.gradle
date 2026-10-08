@@ -1,4 +1,2 @@
-```groovy
 rootProject.name = "123pan-mobile-app"
 include ':app'
-```
